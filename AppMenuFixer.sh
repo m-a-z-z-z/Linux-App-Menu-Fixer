@@ -2,10 +2,11 @@
 
 # TODO
 # [] Split program into two cases while testing
-    # [] Hide gnome apps case
+    # [x] Hide gnome apps case
     # [] Hide KDE apps case 
-# [] Hide all org.gnome or org.kde files by default.
-# [] Suspected Gnome or KDE apps made optional / to be selected by user
+# [x] Hide all org.gnome apps by default
+# [] Hide all org.kde apps by default
+# [x] Suspected Gnome or KDE apps made optional / to be selected by user
 # [x] Add programs to be hidden to a text file rather than an array.
     # This will allow querying by category which returns false positives that we can then blacklist from being hidden.
     # This will allow for more apps to be hidden besides the regular "org.gnome" or "org.kde" ones.
@@ -26,8 +27,7 @@ echo "==========================================================================
 if [ -d "$directory" ]; then
     echo "$directory found. Proceeding..." >> $logfile
 else
-    echo -e "\t\tError, Directory not found: $directory\nPlease open script and reconfigure to where your desktop entries are located."
-    echo "Error, Directory not found: $directory. Please open script and reconfigure to where your desktop entries are located." >> $logfile
+    echo -e "\t\tError, Directory not found: $directory\nPlease open script and reconfigure to where your desktop entries are located." | tee -a $logfile
     exit 1
 fi
 
@@ -81,7 +81,7 @@ if [ $answer = "g" ]; then
         
         echo -e "\n\tUncomment applications you want hidden by removing '#' at the start of the line."
         vim "$gnome_apps_list"
-        echo -e "\n\tApps will now be hidden. \n\n\tPress CTRL+C to cancel."
+        read -p "\n\tApps will now be hidden.\n\tPress Enter to continue or CTRL+C to cancel."
         for ((i=5; i>0; i--)); do
             echo "$i..."
             sleep 1
@@ -91,40 +91,36 @@ if [ $answer = "g" ]; then
             echo -e "\n$line"
 
             if grep "^#" <<< "$line"; then  # Check if application is commented out from list and skip if it is
-                echo -e "\tPreserving current properties of $line. Skipped." 
-                echo "Preserve current properties of $line. Skipped." >> $logfile
+                echo -e "\tPreserving current properties of $line. Skipped." | tee -a $logfile
 
             elif grep -qF "OnlyShowIn=" "$directory/$line"; then
-                echo -e "\tDeleting current 'OnlyShowIn' values from $line."
-                echo "Deleting current 'OnlyShowIn' values from $line." >> $logfile
+                echo -e "\tDeleting current 'OnlyShowIn' values from $line." | tee -a $logfile
                 sed -i '/OnlyShowIn=/d' "$directory/$line" # Delete any current values to avoid complications
                 
-                echo -e "\tAppending OnlyShowIn=GNOME to $line"
-                echo "Appending OnlyShowIn=GNOME to $line" >> $logfile
+                echo -e "\tAppending OnlyShowIn=GNOME to $line" | tee -a $logfile
                 sed -i '/^\[Desktop Entry\]/a OnlyShowIn=GNOME;' "$directory/$line"
 
             elif grep -qF "NotShowIn=" "$directory/$line"; then
-                echo -e "\tDeleting current 'NotShowIn' values from $line."
-                echo "Deleting current 'NotShowIn' values from $line." >> $logfile
+                echo -e "\tDeleting current 'NotShowIn' values from $line." | tee -a $logfile
                 sed -i '/NotShowIn=/d' "$directory/$line" # Delete any current values to avoid complications
                 
-                echo -e "\tAppending OnlyShowIn=GNOME to $line"
-                echo "Appending OnlyShowIn=GNOME to $line" >> $logfile
+                echo -e "\tAppending OnlyShowIn=GNOME to $line" | tee -a $logfile
                 sed -i '/^\[Desktop Entry\]/a OnlyShowIn=GNOME;' "$directory/$line"
 
             else
-                echo -e "\tAppending OnlyShowIn=GNOME to $line"
-                echo "Appending OnlyShowIn=GNOME to $line" >> $logfile
+                echo -e "\tAppending OnlyShowIn=GNOME to $line" | tee -a $logfile
                 sed -i '/^\[Desktop Entry\]/a OnlyShowIn=GNOME;' "$directory/$line"
 
             fi
         done < "$gnome_apps_list"
     else
         echo "Oopsy woopsy, I done messed up somewhere son."
+        exit 1
     fi
 
 elif [ $answer = "k" ]; then
     echo "To be implemented"
+    exit 0
 fi
 
 echo -e "\n\t\tApplications hidden successfully. Exiting script..."
