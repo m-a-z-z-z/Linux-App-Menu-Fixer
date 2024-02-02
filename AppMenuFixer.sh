@@ -84,10 +84,20 @@ for app in "$directory"/*.desktop; do
 done
 
 ######################## Blacklist applications from being modified ########################
-echo -e "\n\tComment out applications you do not want hidden by adding '#' at the start of the line.\nPress enter to continue."
-read -p
-vim "$apps_list"
-sed -i 's/^[[:space:]]*//' $apps_list
+echo -e "\nPress E to select apps to blacklist from modifications by commenting out with '#'.\nOtherwise press C to continue."
+read -p "(Edit = E / Continue = C): " dummy_var
+while [ "$dummy_var" != "E" ] && [ "$dummy_var" != "e" ] && [ "$dummy_var" != "C" ] && [ "$dummy_var" != "c" ]; do
+    echo "Invalid response, try again."
+    read -p "(Edit = E / Continue = C): " answer
+done
+
+if [ "$dummy_var" = "E" ] || [ "$dummy_var" = "e" ]; then
+    vim "$apps_list"
+    sed -i 's/^[[:space:]]*//' $apps_list
+else
+    echo "Continuing without blacklisting..." | tee -a $logfile
+fi
+
 echo -e "\n\tApps will now be hidden.\n\tPress Enter to continue or CTRL+C to cancel." && read
 for ((i=3; i>0; i--)); do
     echo "$i..."
