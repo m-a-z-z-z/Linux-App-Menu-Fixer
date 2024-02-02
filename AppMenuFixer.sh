@@ -6,12 +6,14 @@ apps_list="apps_list.txt"
 modified_files="modifiedFilesList.txt"
 > "$logfile"    # wipe previous log
 > "$apps_list"
-directory="/home/maz/Desktop/usr.share.clone/applications"
 
 echo "========================================================================================="
-######################## Check if directory is valid ########################
+######################## Directory entry and validation ########################
+read -p "Enter directory for desktop entries (default is /usr/share/applications): " input_directory
+directory=${input_directory:-/usr/share/applications}
+
 if [ -d "$directory" ]; then
-    echo "$directory found. Proceeding..." >> $logfile
+    echo "$directory found. Proceeding..." | tee -a $logfile
 else
     echo -e "\t\tError, Directory not found: $directory\nPlease open script and reconfigure to where your desktop entries are located." | tee -a $logfile
     exit 1
@@ -123,5 +125,6 @@ while IFS= read -r line; do
 done < "$apps_list"
 
 echo -e "\n\t\tApplications hidden successfully. Exiting script..."
+echo "========================================================================================="
 
 
