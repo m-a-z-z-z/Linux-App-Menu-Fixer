@@ -4,6 +4,7 @@
 # [x] Split program into two cases while testing
     # [x] Hide gnome apps case
     # [x] Hide KDE apps case 
+# [] Merge cases once tested
 # [x] Hide all org.gnome apps by default
 # [x] Hide all org.kde apps by default
 # [x] Suspected Gnome or KDE apps made optional / to be selected by user
@@ -16,10 +17,12 @@
 logfile="logfile.txt"
 gnome_apps_list="gnome_apps_list.txt"
 kde_apps_list="kde_apps_list.txt"
+apps_list="apps_list.txt"
 modified_files="modifiedFilesList.txt"
 > "$logfile"    # wipe previous log
 > "$gnome_apps_list"
 > "$kde_apps_list"
+> "$apps_list"
 directory="/home/maz/Desktop/usr.share.clone/applications"
 
 echo "========================================================================================="
@@ -41,133 +44,89 @@ while [ "$answer" != "yes" ] && [ "$answer" != "y" ] && [ "$answer" != "no" ] &&
 done
 
 if [ $answer = "yes" ] || [ $answer = "y" ]; then
-    echo "Proceeding..."
+    echo -e "\nProceeding..."
 elif [ $answer = "no" ] || [ $answer = "n" ]; then
     echo "Operation cancelled. Exiting..."
     exit 0
 fi
 
 ######################## Prompt user to select desktop apps to hide ########################
-echo "\nDo you wish to hide GNOME or KDE apps from the opposing desktop?" 
-read -p "(GNOME = g / KDE = k): " answer
+echo -e "\nDo you wish to hide GNOME or KDE apps from the opposing desktop?" 
+read -p "(GNOME = g / KDE = k / All = a): " answer
 
-while [ "$answer" != "g" ] && [ "$answer" != "k" ]; do
+while [ "$answer" != "g" ] && [ "$answer" != "k" ] && [ "$answer" != "a" ]; do
     echo "Invalid response, try again."
-    read -p "(GNOME = g / KDE = k): " answer
+    read -p "(GNOME = g / KDE = k / All = a): " answer
 done
 
-######################## Find GNOME apps and add them to list for sorting later ########################
-if [ $answer = "g" ]; then
-    echo -e "\n\t\tFinding all GNOME applications..."
-    for app in "$directory"/*.desktop; do
-        if grep -qiF "NoDisplay=true" $app || grep -qiF "NotShowIn=*\bGNOME\b" $app; then     # Check if app contains NoDisplay=true so it can be skipped.
-            echo "$(basename "$app") Not displayed by default. No need to configure. Skipped." >> $logfile
+######################## Find all applications which should be hidden ########################
 
-        elif [[ "$(basename "$app")" == org.gnome* ]]; then     # Add all org.gnome entries to list as they are likely preinstalled with Gnome
-            echo "$(basename "$app")" >> $gnome_apps_list
+# Add applications to be modified to text file
+for app in "$directory"/*.desktop; do
+    # Skip applications not displayed in app menu and 
+    if grep -qiF "NoDisplay=true" "$app" || grep -qiF "NotShowIn=.*\bGNOME\b" "$app" || grep -qiF "NotShowIn=.*\bKDE\b" "$app"; then
+        echo "$(basename "$app") Not displayed by default. No need to configure. Skipped." >> "$logfile"
 
-        elif grep -qi "^Categories=.*\bGNOME\b" "$app"; then
-            # Most precise I was able to get this regex, these programs that are added will be commented out. 
-            # If users wish to hide them, they can uncomment them when the script opens the list in VIM.
-            echo "#$(basename "$app")" >> $gnome_apps_list
+    elif [ "$answer" = "g" ] && \
+    { [[ "$(basename "$app")" == org.gnome* ]] || grep -qi "^Categories=.*\bGNOME\b" "$app"; }; then
+        echo "$(basename "$app")" >> "$apps_list"
 
-        else
-            echo "$(basename "$app") not preinstalled GNOME or KDE app. Skipped." >> $logfile    # Triggers for apps user installed/non system apps
+    elif [ "$answer" == "k" ] && \
+    { [[ "$(basename "$app")" == org.kde* ]] || grep -qi "^Categories=.*\bKDE\b" "$app"; }; then
+        echo "$(basename "$app")" >> "$apps_list"
 
-        fi
-    done
+    elif [ "$answer" = "a" ] && \
+    { [[ "$(basename "$app")" == org.gnome* || "$(basename "$app")" == org.kde* ]] || \
+    grep -qi "^Categories=.*\bGNOME\b" "$app" || grep -qi "^Categories=.*\bGNOME\b" "$app"; }; then
+        echo "$(basename "$app")" >> "$apps_list"
 
-    if [ -e "$gnome_apps_list" ]; then
-        
-        echo -e "\n\tUncomment applications you want hidden by removing '#' at the start of the line."
-        vim "$gnome_apps_list"
-        sed -i 's/^[[:space:]]*//' $gnome_apps_list
-        echo -e "\n\tApps will now be hidden.\n\tPress Enter to continue or CTRL+C to cancel." && read
-        for ((i=3; i>0; i--)); do
-            echo "$i..."
-            sleep 1
-        done
-
-        while IFS= read -r line; do
-            echo -e "\n$line"
-
-            if grep "^#" <<< "$line"; then  # Check if application is commented out from list and skip if it is
-                echo -e "\tPreserving current properties of $line. Skipped." | tee -a $logfile
-
-            elif grep -qF "OnlyShowIn=" "$directory/$line"; then
-                echo -e "\tDeleting current 'OnlyShowIn' values from $line." | tee -a $logfile
-                sed -i '/OnlyShowIn=/d' "$directory/$line" # Delete any current values to avoid complications
-                
-                echo -e "\tAppending OnlyShowIn=GNOME to $line" | tee -a $logfile
-                sed -i '/^\[Desktop Entry\]/a OnlyShowIn=GNOME;' "$directory/$line"
-
-            else
-                echo -e "\tAppending OnlyShowIn=GNOME to $line" | tee -a $logfile
-                sed -i '/^\[Desktop Entry\]/a OnlyShowIn=GNOME;' "$directory/$line"
-
-            fi
-        done < "$gnome_apps_list"
-    else
-        echo "Oopsy woopsy, I done messed up somewhere son."
-        exit 1
     fi
+done
 
-######################## Find KDE apps and add them to list for sorting later ########################
-elif [ $answer = "k" ]; then
-    echo -e "\n\t\tFinding all  KDE applications..."
-    for app in "$directory"/*.desktop; do
-        if grep -qiF "NoDisplay=true" $app || grep -qiF "NotShowIn=*\bKDE\b" $app; then     # Check if app contains NoDisplay=true so it can be skipped.
-            echo "$(basename "$app") Not displayed by default. No need to configure. Skipped." >> $logfile
+######################## Blacklist applications from being modified ########################
+echo -e "\n\tComment out applications you do not want hidden by adding '#' at the start of the line.\nPress enter to continue."
+read -p
+vim "$apps_list"
+sed -i 's/^[[:space:]]*//' $apps_list
+echo -e "\n\tApps will now be hidden.\n\tPress Enter to continue or CTRL+C to cancel." && read
+for ((i=3; i>0; i--)); do
+    echo "$i..."
+    sleep 1
+done
 
-        elif [[ "$(basename "$app")" == org.kde* ]]; then     # Add all org.gnome entries to list as they are likely preinstalled with Gnome
-            echo "$(basename "$app")" >> $kde_apps_list
+######################## Modify the desktop entries ########################
+while IFS= read -r line; do
+    echo -e "\n$line"
 
-        elif grep -qi "^Categories=.*\bKDE\b" "$app"; then
-            # Most precise I was able to get this regex, these programs that are added will be commented out. 
-            # If users wish to hide them, they can uncomment them when the script opens the list in VIM.
-            echo "#$(basename "$app")" >> $kde_apps_list
+    if grep "^#" <<< "$line"; then
+        echo -e "\tPreserving current properties of $line. Skipped." | tee -a $logfile
 
-        else
-            echo "$(basename "$app") not preinstalled GNOME or KDE app. Skipped." >> $logfile    # Triggers for apps user installed/non system apps
+    elif grep -qF "OnlyShowIn=" "$directory/$line"; then
+        # Remove existing values to avoid any complications
+        echo -e "\tDeleting current 'OnlyShowIn' values from $line." | tee -a $logfile
+        sed -i '/OnlyShowIn=/d' "$directory/$line"
 
+        if [[ "$line" == org.gnome* ]] || grep -qi "^Categories=.*\bGNOME\b" "$directory/$line"; then
+            echo -e "\tAdding OnlyShowIn=GNOME to $line" | tee -a $logfile
+            sed -i '/^\[Desktop Entry\]/a OnlyShowIn=GNOME;' "$directory/$line"
+
+        elif [[ "$line" == org.kde* ]] || grep -qi "^Categories=.*\bKDE\b" "$directory/$line"; then
+            echo -e "\tAdding OnlyShowIn=KDE to $line" | tee -a $logfile
+            sed -i '/^\[Desktop Entry\]/a OnlyShowIn=KDE;' "$directory/$line"
         fi
-    done
 
-    if [ -e "$kde_apps_list" ]; then
-        
-        echo -e "\n\tUncomment applications you want hidden by removing '#' at the start of the line."
-        vim "$kde_apps_list"
-        sed -i 's/^[[:space:]]*//' $kde_apps_list
-        echo -e "\n\tApps will now be hidden.\n\tPress Enter to continue or CTRL+C to cancel." && read
-        for ((i=5; i>0; i--)); do
-            echo "$i..."
-            sleep 1
-        done
-
-        while IFS= read -r line; do
-            echo -e "\n$line"
-
-            if grep "^#" <<< "$line"; then  # Check if application is commented out from list and skip if it is
-                echo -e "\tPreserving current properties of $line. Skipped." | tee -a $logfile
-
-            elif grep -qF "OnlyShowIn=" "$directory/$line"; then
-                echo -e "\tDeleting current 'OnlyShowIn' values from $line." | tee -a $logfile
-                sed -i '/OnlyShowIn=/d' "$directory/$line" # Delete any current values to avoid complications
-                
-                echo -e "\tAppending OnlyShowIn=KDE to $line" | tee -a $logfile
-                sed -i '/^\[Desktop Entry\]/a OnlyShowIn=KDE;' "$directory/$line"
-
-            else
-                echo -e "\tAppending OnlyShowIn=KDE to $line" | tee -a $logfile
-                sed -i '/^\[Desktop Entry\]/a OnlyShowIn=KDE;' "$directory/$line"
-
-            fi
-        done < "$kde_apps_list"
     else
-        echo "Oopsy woopsy, I done messed up somewhere son."
-        exit 1
+        if [[ "$line" == org.gnome* ]] || grep -qi "^Categories=.*\bGNOME\b" "$directory/$line"; then
+            echo -e "\tAdding OnlyShowIn=GNOME to $line" | tee -a $logfile
+            sed -i '/^\[Desktop Entry\]/a OnlyShowIn=GNOME;' "$directory/$line"
+
+        elif [[ "$line" == org.kde* ]] || grep -qi "^Categories=.*\bKDE\b" "$directory/$line"; then
+            echo -e "\tAdding OnlyShowIn=KDE to $line" | tee -a $logfile
+            sed -i '/^\[Desktop Entry\]/a OnlyShowIn=KDE;' "$directory/$line"
+        fi
+
     fi
-fi
+done < "$apps_list"
 
 echo -e "\n\t\tApplications hidden successfully. Exiting script..."
 
