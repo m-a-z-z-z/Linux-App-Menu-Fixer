@@ -10,4 +10,4 @@ The script will simply add the line `OnlyShowIn=KDE;` and `OnlyShowIn=Gnome;` fo
 <br>
 
 ## Why make this script when I can simply hide applications in the app menu GUI?
-While you can manually hide applications in the app menu for most DE's, this is a tedious process if you have multiple desktop environments installed, and you will have to do it for each DE. You could do what this script does manually in a text editor also, but updates to the applications may revert the changes you make causing you to have to these modifications again, which is why I made this script.
+Basically just made this to skip that step if a reinstall is done, and if something like an update reverts any modifications made to the .desktop file.
