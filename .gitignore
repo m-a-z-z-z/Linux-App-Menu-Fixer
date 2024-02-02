@@ -1,4 +1,4 @@
 .vscode
 logfile.txt
-gnome_apps_list.txt
-kde_apps_list.txt
+apps_list.txt
+modifiedFilesList.txt
